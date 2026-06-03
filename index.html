@@ -103,7 +103,16 @@ let coins=[];
 let enemies=[];
 
 let lastGeneratedX=0;
+    
+const goal={
 
+    x:20000,
+    y:350,
+
+    w:80,
+    h:120
+
+};
 function createForestChunk(startX){
 
     for(let i=0;i<12;i++){
@@ -427,7 +436,36 @@ function update(){
     .getElementById("lvl")
     .textContent=
     player.level;
+if(
 
+    player.x < goal.x + goal.w &&
+    player.x + player.w > goal.x &&
+    player.y < goal.y + goal.h &&
+    player.y + player.h > goal.y
+
+){
+
+    player.x=100;
+    player.y=100;
+
+    player.vx=0;
+    player.vy=0;
+
+    cameraX=0;
+
+    platforms=[];
+    enemies=[];
+    coins=[];
+
+    lastGeneratedX=0;
+
+    for(let i=0;i<5;i++){
+
+        generateChunk();
+
+    }
+
+}
 }
 
 function draw(){
@@ -443,7 +481,25 @@ function draw(){
     );
 
     for(const p of platforms){
+        ctx.fillStyle=
+"gold";
 
+ctx.fillRect(
+    goal.x-cameraX,
+    goal.y,
+    goal.w,
+    goal.h
+);
+
+ctx.fillStyle=
+"red";
+
+ctx.fillRect(
+    goal.x-cameraX,
+    goal.y,
+    goal.w,
+    20
+);
         ctx.fillStyle=
         "#6b4f2a";
 
