@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Jump'n'Run RPG - Improved</title>
+<title>Jump'n'Run FIX FINAL</title>
 
 <style>
 body{margin:0;overflow:hidden;background:#6ec6ff;font-family:Arial}
@@ -21,8 +21,7 @@ position:absolute;right:10px;top:10px;
 background:rgba(255,255,255,.9);
 padding:10px;border-radius:8px;
 }
-
-button{margin:2px}
+button{margin:3px}
 </style>
 </head>
 
@@ -32,7 +31,7 @@ button{margin:2px}
 ❤️ <span id="hp">5</span>
 ⭐ <span id="xp">0</span>
 💰 <span id="gold">0</span>
-🏆 <span id="lvl">1</span>
+🏁 CP <span id="cp">0</span>
 </div>
 
 <div id="panel">
@@ -45,7 +44,7 @@ button{margin:2px}
 <canvas id="c"></canvas>
 
 <script>
-const canvas=c;
+const canvas=document.getElementById("c");
 const ctx=canvas.getContext("2d");
 
 function resize(){
@@ -55,61 +54,56 @@ canvas.height=innerHeight;
 resize();
 addEventListener("resize",resize);
 
+/* 🎮 INPUT */
 const keys={};
 onkeydown=e=>keys[e.code]=true;
 onkeyup=e=>keys[e.code]=false;
 
-/* 🌍 PLAYER */
+/* 👤 PLAYER */
 const p={
 x:100,y:100,w:40,h:60,
 vx:0,vy:0,
 color:"crimson",
-hp:5,xp:0,gold:0,lvl:1,
+hp:5,
+xp:0,
+gold:0,
 ground:false
 };
 
-/* 🎮 UI */
-red.onclick=()=>p.color="crimson";
-blue.onclick=()=>p.color="royalblue";
-green.onclick=()=>p.color="seagreen";
-
-shop.onclick=()=>{
-if(p.gold>=10){p.gold-=10;p.hp++;}
-};
-
-/* 🧱 WORLD - procedural terrain */
+/* 🌍 WORLD */
 const plats=[];
-
-// ground with variation
-for(let i=0;i<200;i++){
-let h=600 + Math.sin(i*0.3)*40 + Math.random()*20;
-plats.push({x:i*120,y:h,w:120,h:80});
-}
-
-/* 💰 coins */
 const coins=[];
-for(let i=0;i<120;i++){
-coins.push({
-x:200+i*140,
-y:200+Math.random()*250,
-taken:false
-});
-}
 
-/* 👾 enemies */
-const enemies=[];
-for(let i=0;i<35;i++){
-enemies.push({
-x:500+i*260,
-y:500,
-w:40,h:40,
-dir:Math.random()>0.5?1:-1,
-dead:false
-});
-}
+/* 🏁 CHECKPOINT (ONLY ONE - FIXED) */
+let checkpoint = {x:100,y:200};
 
 let cam=0;
 let gameOver=false;
+
+let worldX=0;
+
+/* 🌱 GENERATOR */
+function generate(x){
+const y = 350 + Math.random()*250;
+
+plats.push({x,y,w:150,h:20});
+
+/* coins */
+if(Math.random()<0.6){
+coins.push({x:x+60,y:y-40,taken:false});
+}
+
+/* checkpoint occasionally */
+if(Math.random()<0.12){
+checkpoint = {x:x+60,y:y-60};
+}
+}
+
+/* initial world */
+for(let i=0;i<25;i++){
+generate(i*160);
+worldX+=160;
+}
 
 /* collision */
 function rect(a,b){
@@ -119,41 +113,52 @@ a.y<b.y+b.h &&
 a.y+a.h>b.y;
 }
 
-/* 🌄 background layers */
-function drawBackground(){
-const g=ctx.createLinearGradient(0,0,0,canvas.height);
-g.addColorStop(0,"#6ec6ff");
-g.addColorStop(1,"#dff6ff");
-ctx.fillStyle=g;
-ctx.fillRect(0,0,canvas.width,canvas.height);
+/* 🧠 RESPAWN (IMPORTANT FIX) */
+function respawn(){
+p.x = checkpoint.x;
+p.y = checkpoint.y;
+p.vx = 0;
+p.vy = 0;
+}
 
-// simple hills
-ctx.fillStyle="#7ec850";
-for(let i=0;i<10;i++){
-ctx.beginPath();
-ctx.arc(i*300 - cam*0.3,650,200,0,Math.PI*2);
-ctx.fill();
+/* RESET GAME (only on GAME OVER) */
+function resetGame(){
+p.x=100;
+p.y=100;
+p.vx=0;
+p.vy=0;
+
+p.hp=5;
+p.xp=0;
+p.gold=0;
+
+checkpoint = {x:100,y:200};
+
+gameOver=false;
+
+plats.length=0;
+coins.length=0;
+worldX=0;
+
+for(let i=0;i<25;i++){
+generate(i*160);
+worldX+=160;
 }
 }
 
-/* 👤 player sprite */
-function drawPlayer(){
-ctx.fillStyle=p.color;
+/* BUTTONS */
+document.getElementById("red").onclick=()=>p.color="crimson";
+document.getElementById("blue").onclick=()=>p.color="royalblue";
+document.getElementById("green").onclick=()=>p.color="seagreen";
 
-// body
-ctx.fillRect(p.x-cam,p.y,p.w,p.h);
-
-// head
-ctx.fillStyle="#ffd1a8";
-ctx.fillRect(p.x-cam+10,p.y-20,20,20);
-
-// eyes
-ctx.fillStyle="black";
-ctx.fillRect(p.x-cam+14,p.y-15,4,4);
-ctx.fillRect(p.x-cam+22,p.y-15,4,4);
+document.getElementById("shop").onclick=()=>{
+if(p.gold>=10){
+p.gold-=10;
+p.hp++;
 }
+};
 
-/* update */
+/* UPDATE */
 function update(){
 if(gameOver) return;
 
@@ -162,12 +167,12 @@ p.vx=0;
 if(keys["ArrowLeft"]||keys["KeyA"]) p.vx=-5;
 if(keys["ArrowRight"]||keys["KeyD"]) p.vx=5;
 
-if((keys["Space"]||keys["ArrowUp"]||keys["KeyW"])&&p.ground){
-p.vy=-15;
+if((keys["Space"]||keys["KeyW"]) && p.ground){
+p.vy=-14;
 p.ground=false;
 }
 
-p.vy+=0.7;
+p.vy+=0.6;
 p.x+=p.vx;
 p.y+=p.vy;
 
@@ -176,7 +181,8 @@ p.ground=false;
 /* platforms */
 for(const pl of plats){
 if(p.x+p.w>pl.x && p.x<pl.x+pl.w &&
-p.y+p.h>pl.y && p.y+p.h<pl.y+40 && p.vy>=0){
+p.y+p.h>pl.y && p.y+p.h<pl.y+25 && p.vy>=0){
+
 p.y=pl.y-p.h;
 p.vy=0;
 p.ground=true;
@@ -186,64 +192,64 @@ p.ground=true;
 /* coins */
 for(const c of coins){
 if(c.taken) continue;
-if(Math.hypot((p.x-c.x),(p.y-c.y))<35){
+
+if(Math.hypot(p.x-c.x,p.y-c.y)<30){
 c.taken=true;
 p.gold++;
 p.xp+=5;
-
-if(p.xp>=100){
-p.xp=0;
-p.lvl++;
-}
 }
 }
 
-/* enemies */
-for(const e of enemies){
-if(e.dead) continue;
+/* checkpoint update */
+if(Math.hypot(p.x-checkpoint.x,p.y-checkpoint.y)<50){
+checkpoint = checkpoint;
+}
 
-e.x+=e.dir*2;
-if(Math.random()<0.01) e.dir*=-1;
+/* generate endless world */
+while(worldX < p.x+1200){
+generate(worldX);
+worldX+=160;
+}
 
-if(rect(p,e)){
-if(p.vy>0){
-e.dead=true;
-p.vy=-10;
-p.gold+=3;
-}else{
+/* cleanup */
+for(let i=plats.length-1;i>=0;i--){
+if(plats[i].x < p.x-1200){
+plats.splice(i,1);
+}
+}
+
+/* ☠️ FALL DAMAGE */
+if(p.y > canvas.height+200){
 p.hp--;
+
 if(p.hp<=0){
 gameOver=true;
 return;
 }
-p.x=100;
-p.y=100;
-}
-}
+
+respawn();
 }
 
+/* camera */
 cam=p.x-canvas.width/2;
 
 /* HUD */
-hp.textContent=p.hp;
-xp.textContent=p.xp;
-gold.textContent=p.gold;
-lvl.textContent=p.lvl;
+document.getElementById("hp").textContent=p.hp;
+document.getElementById("xp").textContent=p.xp;
+document.getElementById("gold").textContent=p.gold;
+document.getElementById("cp").textContent=Math.floor(checkpoint.x/800);
 }
 
-/* draw world */
+/* DRAW */
 function draw(){
 
-drawBackground();
+ctx.fillStyle="#6ec6ff";
+ctx.fillRect(0,0,canvas.width,canvas.height);
 
 /* platforms */
 for(const pl of plats){
-ctx.fillStyle="#5a3d1e";
+ctx.fillStyle="#6b4f1d";
 ctx.fillRect(pl.x-cam,pl.y,pl.w,pl.h);
-
-// grass top
-ctx.fillStyle="#3fa34d";
-ctx.fillRect(pl.x-cam,pl.y,pl.w,10);
 }
 
 /* coins */
@@ -255,36 +261,50 @@ ctx.arc(c.x-cam,c.y,10,0,Math.PI*2);
 ctx.fill();
 }
 
-/* enemies */
-for(const e of enemies){
-if(e.dead) continue;
-
-// simple "creature"
-ctx.fillStyle="limegreen";
-ctx.fillRect(e.x-cam,e.y,e.w,e.h);
-ctx.fillStyle="black";
-ctx.fillRect(e.x-cam+10,e.y+10,5,5);
-ctx.fillRect(e.x-cam+25,e.y+10,5,5);
-}
+/* checkpoint */
+ctx.fillStyle="red";
+ctx.fillRect(checkpoint.x-cam,checkpoint.y,20,60);
 
 /* player */
-drawPlayer();
+ctx.fillStyle=p.color;
+ctx.fillRect(p.x-cam,p.y,p.w,p.h);
 
-/* UI text */
-ctx.fillStyle="black";
-ctx.fillText("A/D bewegen, Space springen",20,canvas.height-20);
-
-/* game over */
+/* GAME OVER */
 if(gameOver){
-ctx.fillStyle="rgba(0,0,0,0.8)";
+ctx.fillStyle="rgba(0,0,0,0.85)";
 ctx.fillRect(0,0,canvas.width,canvas.height);
 
 ctx.fillStyle="white";
 ctx.font="70px Arial";
 ctx.fillText("GAME OVER",canvas.width/2-200,canvas.height/2);
+
+/* restart */
+ctx.fillStyle="#00ff99";
+ctx.fillRect(canvas.width/2-100,canvas.height/2+60,200,60);
+
+ctx.fillStyle="black";
+ctx.font="30px Arial";
+ctx.fillText("RESTART",canvas.width/2-60,canvas.height/2+100);
 }
 }
 
+/* restart click */
+canvas.addEventListener("click",e=>{
+if(!gameOver) return;
+
+const r=canvas.getBoundingClientRect();
+const mx=e.clientX-r.left;
+const my=e.clientY-r.top;
+
+if(mx>canvas.width/2-100 &&
+mx<canvas.width/2+100 &&
+my>canvas.height/2+60 &&
+my<canvas.height/2+120){
+resetGame();
+}
+});
+
+/* LOOP */
 function loop(){
 requestAnimationFrame(loop);
 update();
@@ -293,5 +313,6 @@ draw();
 loop();
 
 </script>
+
 </body>
 </html>
