@@ -76,7 +76,7 @@ function update(){
  if(keys["ArrowLeft"]||keys["KeyA"]) p.vx=-5;
  if(keys["ArrowRight"]||keys["KeyD"]) p.vx=5;
 
- if((keys["Space"]||keys["ArrowUp"])&&p.ground){
+ if((keys["Space"]||keys["ArrowUp"]||keys["w"])&&p.ground){
    p.vy=-15;
    p.ground=false;
  }
