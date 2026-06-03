@@ -1,1 +1,177 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jump'n'Run RPG</title>
+<style>
+body{margin:0;overflow:hidden;background:#6ec6ff;font-family:Arial}
+canvas{display:block}
+#hud{position:absolute;left:10px;top:10px;background:rgba(255,255,255,.85);padding:10px;border-radius:8px}
+#panel{position:absolute;right:10px;top:10px;background:rgba(255,255,255,.9);padding:10px;border-radius:8px}
+button{margin:2px}
+</style>
+</head>
+<body>
+<div id="hud">
+❤️ <span id="hp">5</span>
+⭐ <span id="xp">0</span>
+💰 <span id="gold">0</span>
+🏆 <span id="lvl">1</span>
+</div>
 
+<div id="panel">
+<button id="red">Rot</button>
+<button id="blue">Blau</button>
+<button id="green">Grün</button>
+<button id="shop">+1 Leben (10 Gold)</button>
+</div>
+
+<canvas id="c"></canvas>
+<script>
+const canvas=c;
+const ctx=canvas.getContext("2d");
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}
+resize();addEventListener("resize",resize);
+
+const keys={};
+onkeydown=e=>keys[e.code]=true;
+onkeyup=e=>keys[e.code]=false;
+
+const p={x:100,y:100,w:40,h:60,vx:0,vy:0,color:"crimson",hp:5,xp:0,gold:0,lvl:1,ground:false};
+red.onclick=()=>p.color="crimson";
+blue.onclick=()=>p.color="royalblue";
+green.onclick=()=>p.color="seagreen";
+
+shop.onclick=()=>{
+ if(p.gold>=10){p.gold-=10;p.hp++;}
+};
+
+const plats=[];
+plats.push({x:-1000,y:650,w:20000,h:60});
+for(let i=0;i<40;i++){
+ plats.push({x:250+i*220,y:560-(i%5)*60,w:120,h:20});
+}
+
+const coins=[];
+for(let i=0;i<80;i++){
+ coins.push({x:300+i*100,y:200+Math.random()*300,taken:false});
+}
+
+const enemies=[];
+for(let i=0;i<25;i++){
+ enemies.push({x:600+i*300,y:600,w:40,h:40,dir:1,dead:false});
+}
+
+let cam=0;
+
+function rect(a,b){
+ return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
+}
+
+function update(){
+ p.vx=0;
+ if(keys["ArrowLeft"]||keys["KeyA"]) p.vx=-5;
+ if(keys["ArrowRight"]||keys["KeyD"]) p.vx=5;
+
+ if((keys["Space"]||keys["ArrowUp"])&&p.ground){
+   p.vy=-15;
+   p.ground=false;
+ }
+
+ p.vy+=0.7;
+ p.x+=p.vx;
+ p.y+=p.vy;
+
+ p.ground=false;
+
+ for(const pl of plats){
+   if(p.x+p.w>pl.x && p.x<pl.x+pl.w &&
+      p.y+p.h>pl.y && p.y+p.h<pl.y+25 && p.vy>=0){
+      p.y=pl.y-p.h;
+      p.vy=0;
+      p.ground=true;
+   }
+ }
+
+ for(const c of coins){
+   if(c.taken) continue;
+   const dx=(p.x+20)-c.x;
+   const dy=(p.y+20)-c.y;
+   if(Math.hypot(dx,dy)<30){
+      c.taken=true;
+      p.gold++;
+      p.xp+=5;
+      if(p.xp>=100){
+        p.xp=0;
+        p.lvl++;
+      }
+   }
+ }
+
+ for(const e of enemies){
+   if(e.dead) continue;
+   e.x+=e.dir*2;
+   if(e.x%240<3)e.dir*=-1;
+
+   if(rect(p,e)){
+      if(p.vy>0){
+         e.dead=true;
+         p.vy=-10;
+         p.gold+=3;
+      }else{
+         p.hp=Math.max(0,p.hp-1);
+         p.x=100;p.y=100;
+      }
+   }
+ }
+
+ cam=p.x-canvas.width/2;
+ hp.textContent=p.hp;
+ xp.textContent=p.xp;
+ gold.textContent=p.gold;
+ lvl.textContent=p.lvl;
+}
+
+function draw(){
+ ctx.fillStyle="#6ec6ff";
+ ctx.fillRect(0,0,canvas.width,canvas.height);
+
+ ctx.fillStyle="#7ec850";
+ ctx.fillRect(0,620,canvas.width,100);
+
+ for(const pl of plats){
+   ctx.fillStyle="#6b4f2a";
+   ctx.fillRect(pl.x-cam,pl.y,pl.w,pl.h);
+ }
+
+ for(const c of coins){
+   if(c.taken) continue;
+   ctx.fillStyle="gold";
+   ctx.beginPath();
+   ctx.arc(c.x-cam,c.y,10,0,7);
+   ctx.fill();
+ }
+
+ for(const e of enemies){
+   if(e.dead) continue;
+   ctx.fillStyle="limegreen";
+   ctx.fillRect(e.x-cam,e.y,e.w,e.h);
+ }
+
+ ctx.fillStyle=p.color;
+ ctx.fillRect(p.x-cam,p.y,p.w,p.h);
+
+ ctx.fillStyle="black";
+ ctx.fillText("A/D oder Pfeile bewegen, Leertaste springen",20,canvas.height-20);
+}
+
+function loop(){
+ requestAnimationFrame(loop);
+ update();
+ draw();
+}
+loop();
+</script>
+</body>
+</html>
