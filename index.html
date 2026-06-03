@@ -64,12 +64,14 @@ for(let i=0;i<25;i++){
 }
 
 let cam=0;
-
+let gameOver=false;
+ 
 function rect(a,b){
  return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
 }
 
 function update(){
+ if(gameOver) return;
  p.vx=0;
  if(keys["ArrowLeft"]||keys["KeyA"]) p.vx=-5;
  if(keys["ArrowRight"]||keys["KeyD"]) p.vx=5;
@@ -120,9 +122,21 @@ function update(){
          p.vy=-10;
          p.gold+=3;
       }else{
-         p.hp=Math.max(0,p.hp-1);
-         p.x=100;p.y=100;
-      }
+
+   p.hp=Math.max(0,p.hp-1);
+
+   if(p.hp<=0){
+
+      gameOver=true;
+
+      return;
+
+   }
+
+   p.x=100;
+   p.y=100;
+
+}
    }
  }
 
@@ -164,6 +178,26 @@ function draw(){
 
  ctx.fillStyle="black";
  ctx.fillText("A/D oder Pfeile bewegen, Leertaste springen",20,canvas.height-20);
+if(gameOver){
+
+   ctx.fillStyle="rgba(0,0,0,0.8)";
+   ctx.fillRect(
+      0,
+      0,
+      canvas.width,
+      canvas.height
+   );
+
+   ctx.fillStyle="white";
+   ctx.font="80px Arial";
+
+   ctx.fillText(
+      "GAME OVER",
+      canvas.width/2-220,
+      canvas.height/2
+   );
+
+}
 }
 
 function loop(){
