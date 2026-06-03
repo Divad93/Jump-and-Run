@@ -3,252 +3,522 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>2D Jump & Run</title>
+<title>Endlos Jump'n'Run</title>
+
 <style>
-    body {
-        margin: 0;
-        overflow: hidden;
-        background: #87ceeb;
-        font-family: Arial, sans-serif;
-    }
+body{
+    margin:0;
+    overflow:hidden;
+    background:#6ec6ff;
+    font-family:Arial;
+}
 
-    canvas {
-        display: block;
-        margin: 0 auto;
-        background: linear-gradient(#87ceeb, #dff6ff);
-    }
+canvas{
+    display:block;
+}
 
-    #ui {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        color: white;
-        font-size: 24px;
-        font-weight: bold;
-        text-shadow: 2px 2px 4px black;
-    }
+#hud{
+    position:absolute;
+    top:10px;
+    left:10px;
+    background:rgba(255,255,255,.9);
+    padding:10px;
+    border-radius:10px;
+}
+
+#gameover{
+    position:absolute;
+    inset:0;
+    display:none;
+    justify-content:center;
+    align-items:center;
+    font-size:80px;
+    background:rgba(0,0,0,.8);
+    color:white;
+}
 </style>
 </head>
 <body>
 
-<div id="ui">Münzen: 0</div>
-<canvas id="game" width="1000" height="600"></canvas>
+<div id="hud">
+❤️ <span id="hp">5</span><br>
+💰 <span id="gold">0</span><br>
+⭐ <span id="xp">0</span><br>
+🏆 <span id="lvl">1</span>
+</div>
+
+<div id="gameover">
+GAME OVER
+</div>
+
+<canvas id="game"></canvas>
 
 <script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
 
-const keys = {};
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
 
-document.addEventListener("keydown", e => {
-    keys[e.code] = true;
+function resize(){
+    canvas.width=window.innerWidth;
+    canvas.height=window.innerHeight;
+}
+resize();
+window.addEventListener("resize",resize);
+
+const keys={};
+
+addEventListener("keydown",e=>{
+    keys[e.code]=true;
 });
 
-document.addEventListener("keyup", e => {
-    keys[e.code] = false;
+addEventListener("keyup",e=>{
+    keys[e.code]=false;
 });
 
-const GRAVITY = 0.7;
+const player={
 
-const player = {
-    x: 100,
-    y: 300,
-    w: 40,
-    h: 60,
-    vx: 0,
-    vy: 0,
-    speed: 5,
-    jumpPower: -14,
-    grounded: false,
-    color: "#ff4444"
+    x:100,
+    y:100,
+
+    w:40,
+    h:60,
+
+    vx:0,
+    vy:0,
+
+    hp:5,
+    xp:0,
+    gold:0,
+    level:1,
+
+    grounded:false
+
 };
 
-const platforms = [
-    {x:0, y:550, w:3000, h:50},
-    {x:300, y:450, w:200, h:20},
-    {x:600, y:380, w:200, h:20},
-    {x:900, y:320, w:180, h:20},
-    {x:1200, y:420, w:250, h:20},
-    {x:1600, y:300, w:220, h:20},
-    {x:1950, y:240, w:220, h:20},
-    {x:2350, y:180, w:220, h:20}
-];
+let cameraX=0;
+let gameOver=false;
 
-const coins = [
-    {x:350,y:400,collected:false},
-    {x:650,y:330,collected:false},
-    {x:980,y:270,collected:false},
-    {x:1270,y:370,collected:false},
-    {x:1680,y:250,collected:false},
-    {x:2030,y:190,collected:false},
-    {x:2420,y:130,collected:false}
-];
+let platforms=[];
+let coins=[];
+let enemies=[];
 
-const goal = {
-    x: 2700,
-    y: 450,
-    w: 40,
-    h: 100
-};
+let lastGeneratedX=0;
 
-let score = 0;
-let cameraX = 0;
-let won = false;
+function createForestChunk(startX){
 
-function rectCollision(a, b) {
-    return (
-        a.x < b.x + b.w &&
-        a.x + a.w > b.x &&
-        a.y < b.y + b.h &&
-        a.y + a.h > b.y
-    );
+    for(let i=0;i<12;i++){
+
+        platforms.push({
+            x:startX+i*180,
+            y:500,
+            w:120,
+            h:20
+        });
+
+        coins.push({
+            x:startX+i*180+60,
+            y:450,
+            taken:false
+        });
+
+    }
+
 }
 
-function update() {
+function createSkyChunk(startX){
 
-    if (won) return;
+    let height=250;
 
-    player.vx = 0;
-
-    if (keys["ArrowLeft"] || keys["KeyA"]) {
-        player.vx = -player.speed;
-    }
-
-    if (keys["ArrowRight"] || keys["KeyD"]) {
-        player.vx = player.speed;
-    }
-
-    if ((keys["Space"] || keys["ArrowUp"] || keys["KeyW"]) && player.grounded) {
-        player.vy = player.jumpPower;
-        player.grounded = false;
-    }
-
-    player.vy += GRAVITY;
-
-    player.x += player.vx;
-
-    player.y += player.vy;
-
-    player.grounded = false;
-
-    for (const p of platforms) {
-
-        if (
-            player.x < p.x + p.w &&
-            player.x + player.w > p.x &&
-            player.y + player.h > p.y &&
-            player.y + player.h < p.y + p.h + 20 &&
-            player.vy >= 0
-        ) {
-            player.y = p.y - player.h;
-            player.vy = 0;
-            player.grounded = true;
-        }
-    }
-
-    for (const coin of coins) {
-
-        if (coin.collected) continue;
-
-        const dx = (player.x + player.w/2) - coin.x;
-        const dy = (player.y + player.h/2) - coin.y;
-
-        if (Math.sqrt(dx*dx + dy*dy) < 35) {
-            coin.collected = true;
-            score++;
-            document.getElementById("ui").textContent =
-                "Münzen: " + score;
-        }
-    }
-
-    if (rectCollision(player, goal)) {
-        won = true;
-    }
-
-    if (player.y > 1000) {
-        player.x = 100;
-        player.y = 300;
-        player.vx = 0;
-        player.vy = 0;
-    }
-
-    cameraX = player.x - canvas.width / 3;
-}
-
-function draw() {
-
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-
-    ctx.save();
-    ctx.translate(-cameraX,0);
-
-    // Hintergrundberge
     for(let i=0;i<10;i++){
-        ctx.fillStyle="#6dbb63";
-        ctx.beginPath();
-        ctx.moveTo(i*500,550);
-        ctx.lineTo(i*500+150,250);
-        ctx.lineTo(i*500+300,550);
-        ctx.fill();
+
+        height+=Math.random()*100-50;
+
+        if(height<150) height=150;
+        if(height>500) height=500;
+
+        platforms.push({
+            x:startX+i*220,
+            y:height,
+            w:120,
+            h:20
+        });
+
     }
 
-    // Plattformen
-    ctx.fillStyle = "#654321";
+}
 
-    for (const p of platforms) {
-        ctx.fillRect(p.x,p.y,p.w,p.h);
+function createEnemyChunk(startX){
+
+    for(let i=0;i<10;i++){
+
+        platforms.push({
+            x:startX+i*180,
+            y:500,
+            w:120,
+            h:20
+        });
+
+        enemies.push({
+
+            x:startX+i*180+20,
+            y:460,
+
+            w:40,
+            h:40,
+
+            dir:Math.random()<0.5?-1:1,
+
+            dead:false
+
+        });
+
     }
 
-    // Münzen
-    for (const coin of coins) {
+}
 
-        if (coin.collected) continue;
+function generateChunk(){
 
-        ctx.fillStyle = "gold";
-        ctx.beginPath();
-        ctx.arc(coin.x, coin.y, 12, 0, Math.PI*2);
-        ctx.fill();
-    }
+    const randomType=
+    Math.floor(Math.random()*3);
 
-    // Ziel
-    ctx.fillStyle = "white";
-    ctx.fillRect(goal.x, goal.y, goal.w, goal.h);
+    if(randomType===0){
 
-    ctx.fillStyle = "red";
-    ctx.fillRect(goal.x, goal.y, goal.w, 20);
-
-    // Spieler
-    ctx.fillStyle = player.color;
-    ctx.fillRect(player.x, player.y, player.w, player.h);
-
-    ctx.restore();
-
-    if (won) {
-        ctx.fillStyle = "rgba(0,0,0,0.7)";
-        ctx.fillRect(0,0,canvas.width,canvas.height);
-
-        ctx.fillStyle = "white";
-        ctx.font = "60px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("GEWONNEN!", canvas.width/2, 250);
-
-        ctx.font = "32px Arial";
-        ctx.fillText(
-            "Gesammelte Münzen: " + score,
-            canvas.width/2,
-            320
+        createForestChunk(
+            lastGeneratedX
         );
+
     }
+
+    else if(randomType===1){
+
+        createSkyChunk(
+            lastGeneratedX
+        );
+
+    }
+
+    else{
+
+        createEnemyChunk(
+            lastGeneratedX
+        );
+
+    }
+
+    lastGeneratedX+=2500;
+
 }
 
-function gameLoop() {
+for(let i=0;i<5;i++){
+
+    generateChunk();
+
+}
+
+function rect(a,b){
+
+    return(
+
+        a.x < b.x+b.w &&
+        a.x+a.w > b.x &&
+        a.y < b.y+b.h &&
+        a.y+a.h > b.y
+
+    );
+
+}
+
+function update(){
+
+    if(gameOver) return;
+
+    if(
+        player.x >
+        lastGeneratedX-2500
+    ){
+
+        generateChunk();
+
+    }
+
+    platforms=
+    platforms.filter(
+    p=>p.x>player.x-5000
+    );
+
+    coins=
+    coins.filter(
+    c=>c.x>player.x-5000
+    );
+
+    enemies=
+    enemies.filter(
+    e=>e.x>player.x-5000
+    );
+
+    player.vx=0;
+
+    if(
+        keys["ArrowLeft"]||
+        keys["KeyA"]
+    ){
+        player.vx=-5;
+    }
+
+    if(
+        keys["ArrowRight"]||
+        keys["KeyD"]
+    ){
+        player.vx=5;
+    }
+
+    if(
+        (
+            keys["Space"]||
+            keys["ArrowUp"]||
+            keys["KeyW"]
+        ) &&
+        player.grounded
+    ){
+
+        player.vy=-15;
+
+        player.grounded=false;
+
+    }
+
+    player.vy+=0.8;
+
+    player.x+=player.vx;
+    player.y+=player.vy;
+
+    player.grounded=false;
+
+    for(const p of platforms){
+
+        if(
+
+            player.x+player.w>p.x &&
+            player.x<p.x+p.w &&
+            player.y+player.h>p.y &&
+            player.y+player.h<p.y+25 &&
+            player.vy>=0
+
+        ){
+
+            player.y=p.y-player.h;
+
+            player.vy=0;
+
+            player.grounded=true;
+
+        }
+
+    }
+
+    for(const c of coins){
+
+        if(c.taken) continue;
+
+        const dx=
+        player.x-c.x;
+
+        const dy=
+        player.y-c.y;
+
+        const dist=
+        Math.sqrt(
+            dx*dx+
+            dy*dy
+        );
+
+        if(dist<40){
+
+            c.taken=true;
+
+            player.gold++;
+
+            player.xp+=5;
+
+            if(player.xp>=100){
+
+                player.xp=0;
+
+                player.level++;
+
+            }
+
+        }
+
+    }
+
+    for(const e of enemies){
+
+        if(e.dead) continue;
+
+        e.x+=e.dir*2;
+
+        if(
+            Math.random()<0.01
+        ){
+            e.dir*=-1;
+        }
+
+        if(
+            rect(player,e)
+        ){
+
+            if(player.vy>0){
+
+                e.dead=true;
+
+                player.vy=-10;
+
+                player.gold+=3;
+
+            }
+            else{
+
+                player.hp--;
+
+                player.x-=100;
+
+                if(
+                    player.hp<=0
+                ){
+
+                    gameOver=true;
+
+                    document
+                    .getElementById(
+                    "gameover"
+                    )
+                    .style.display=
+                    "flex";
+
+                }
+
+            }
+
+        }
+
+    }
+
+    cameraX=
+    player.x-
+    canvas.width/2;
+
+    document
+    .getElementById("hp")
+    .textContent=
+    player.hp;
+
+    document
+    .getElementById("gold")
+    .textContent=
+    player.gold;
+
+    document
+    .getElementById("xp")
+    .textContent=
+    player.xp;
+
+    document
+    .getElementById("lvl")
+    .textContent=
+    player.level;
+
+}
+
+function draw(){
+
+    ctx.fillStyle=
+    "#6ec6ff";
+
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    for(const p of platforms){
+
+        ctx.fillStyle=
+        "#6b4f2a";
+
+        ctx.fillRect(
+            p.x-cameraX,
+            p.y,
+            p.w,
+            p.h
+        );
+
+    }
+
+    for(const c of coins){
+
+        if(c.taken) continue;
+
+        ctx.fillStyle=
+        "gold";
+
+        ctx.beginPath();
+
+        ctx.arc(
+            c.x-cameraX,
+            c.y,
+            10,
+            0,
+            Math.PI*2
+        );
+
+        ctx.fill();
+
+    }
+
+    for(const e of enemies){
+
+        if(e.dead) continue;
+
+        ctx.fillStyle=
+        "limegreen";
+
+        ctx.fillRect(
+            e.x-cameraX,
+            e.y,
+            e.w,
+            e.h
+        );
+
+    }
+
+    ctx.fillStyle=
+    "crimson";
+
+    ctx.fillRect(
+        player.x-cameraX,
+        player.y,
+        player.w,
+        player.h
+    );
+
+}
+
+function loop(){
+
+    requestAnimationFrame(
+        loop
+    );
+
     update();
+
     draw();
-    requestAnimationFrame(gameLoop);
+
 }
 
-gameLoop();
-</script>
+loop();
 
+</script>
 </body>
 </html>
