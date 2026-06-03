@@ -3,16 +3,31 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Jump'n'Run RPG</title>
+<title>Jump'n'Run RPG - Improved</title>
+
 <style>
 body{margin:0;overflow:hidden;background:#6ec6ff;font-family:Arial}
 canvas{display:block}
-#hud{position:absolute;left:10px;top:10px;background:rgba(255,255,255,.85);padding:10px;border-radius:8px}
-#panel{position:absolute;right:10px;top:10px;background:rgba(255,255,255,.9);padding:10px;border-radius:8px}
+
+#hud{
+position:absolute;left:10px;top:10px;
+background:rgba(255,255,255,.85);
+padding:10px;border-radius:8px;
+font-weight:bold;
+}
+
+#panel{
+position:absolute;right:10px;top:10px;
+background:rgba(255,255,255,.9);
+padding:10px;border-radius:8px;
+}
+
 button{margin:2px}
 </style>
 </head>
+
 <body>
+
 <div id="hud">
 ❤️ <span id="hp">5</span>
 ⭐ <span id="xp">0</span>
@@ -28,184 +43,255 @@ button{margin:2px}
 </div>
 
 <canvas id="c"></canvas>
+
 <script>
 const canvas=c;
 const ctx=canvas.getContext("2d");
-function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}
-resize();addEventListener("resize",resize);
+
+function resize(){
+canvas.width=innerWidth;
+canvas.height=innerHeight;
+}
+resize();
+addEventListener("resize",resize);
 
 const keys={};
 onkeydown=e=>keys[e.code]=true;
 onkeyup=e=>keys[e.code]=false;
 
-const p={x:100,y:100,w:40,h:60,vx:0,vy:0,color:"crimson",hp:5,xp:0,gold:0,lvl:1,ground:false};
+/* 🌍 PLAYER */
+const p={
+x:100,y:100,w:40,h:60,
+vx:0,vy:0,
+color:"crimson",
+hp:5,xp:0,gold:0,lvl:1,
+ground:false
+};
+
+/* 🎮 UI */
 red.onclick=()=>p.color="crimson";
 blue.onclick=()=>p.color="royalblue";
 green.onclick=()=>p.color="seagreen";
 
 shop.onclick=()=>{
- if(p.gold>=10){p.gold-=10;p.hp++;}
+if(p.gold>=10){p.gold-=10;p.hp++;}
 };
 
+/* 🧱 WORLD - procedural terrain */
 const plats=[];
-plats.push({x:-1000,y:650,w:20000,h:60});
-for(let i=0;i<40;i++){
- plats.push({x:250+i*220,y:560-(i%5)*60,w:120,h:20});
+
+// ground with variation
+for(let i=0;i<200;i++){
+let h=600 + Math.sin(i*0.3)*40 + Math.random()*20;
+plats.push({x:i*120,y:h,w:120,h:80});
 }
 
+/* 💰 coins */
 const coins=[];
-for(let i=0;i<80;i++){
- coins.push({x:300+i*100,y:200+Math.random()*300,taken:false});
+for(let i=0;i<120;i++){
+coins.push({
+x:200+i*140,
+y:200+Math.random()*250,
+taken:false
+});
 }
 
+/* 👾 enemies */
 const enemies=[];
-for(let i=0;i<25;i++){
- enemies.push({x:600+i*300,y:600,w:40,h:40,dir:1,dead:false});
+for(let i=0;i<35;i++){
+enemies.push({
+x:500+i*260,
+y:500,
+w:40,h:40,
+dir:Math.random()>0.5?1:-1,
+dead:false
+});
 }
 
 let cam=0;
 let gameOver=false;
- 
+
+/* collision */
 function rect(a,b){
- return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
+return a.x<b.x+b.w &&
+a.x+a.w>b.x &&
+a.y<b.y+b.h &&
+a.y+a.h>b.y;
 }
 
+/* 🌄 background layers */
+function drawBackground(){
+const g=ctx.createLinearGradient(0,0,0,canvas.height);
+g.addColorStop(0,"#6ec6ff");
+g.addColorStop(1,"#dff6ff");
+ctx.fillStyle=g;
+ctx.fillRect(0,0,canvas.width,canvas.height);
+
+// simple hills
+ctx.fillStyle="#7ec850";
+for(let i=0;i<10;i++){
+ctx.beginPath();
+ctx.arc(i*300 - cam*0.3,650,200,0,Math.PI*2);
+ctx.fill();
+}
+}
+
+/* 👤 player sprite */
+function drawPlayer(){
+ctx.fillStyle=p.color;
+
+// body
+ctx.fillRect(p.x-cam,p.y,p.w,p.h);
+
+// head
+ctx.fillStyle="#ffd1a8";
+ctx.fillRect(p.x-cam+10,p.y-20,20,20);
+
+// eyes
+ctx.fillStyle="black";
+ctx.fillRect(p.x-cam+14,p.y-15,4,4);
+ctx.fillRect(p.x-cam+22,p.y-15,4,4);
+}
+
+/* update */
 function update(){
- if(gameOver) return;
- p.vx=0;
- if(keys["ArrowLeft"]||keys["KeyA"]) p.vx=-5;
- if(keys["ArrowRight"]||keys["KeyD"]) p.vx=5;
+if(gameOver) return;
 
- if((keys["Space"]||keys["ArrowUp"]||keys["w"])&&p.ground){
-   p.vy=-15;
-   p.ground=false;
- }
+p.vx=0;
 
- p.vy+=0.7;
- p.x+=p.vx;
- p.y+=p.vy;
+if(keys["ArrowLeft"]||keys["KeyA"]) p.vx=-5;
+if(keys["ArrowRight"]||keys["KeyD"]) p.vx=5;
 
- p.ground=false;
-
- for(const pl of plats){
-   if(p.x+p.w>pl.x && p.x<pl.x+pl.w &&
-      p.y+p.h>pl.y && p.y+p.h<pl.y+25 && p.vy>=0){
-      p.y=pl.y-p.h;
-      p.vy=0;
-      p.ground=true;
-   }
- }
-
- for(const c of coins){
-   if(c.taken) continue;
-   const dx=(p.x+20)-c.x;
-   const dy=(p.y+20)-c.y;
-   if(Math.hypot(dx,dy)<30){
-      c.taken=true;
-      p.gold++;
-      p.xp+=5;
-      if(p.xp>=100){
-        p.xp=0;
-        p.lvl++;
-      }
-   }
- }
-
- for(const e of enemies){
-   if(e.dead) continue;
-   e.x+=e.dir*2;
-   if(e.x%240<3)e.dir*=-1;
-
-   if(rect(p,e)){
-      if(p.vy>0){
-         e.dead=true;
-         p.vy=-10;
-         p.gold+=3;
-      }else{
-
-   p.hp=Math.max(0,p.hp-1);
-
-   if(p.hp<=0){
-
-      gameOver=true;
-
-      return;
-
-   }
-
-   p.x=100;
-   p.y=100;
-
-}
-   }
- }
-
- cam=p.x-canvas.width/2;
- hp.textContent=p.hp;
- xp.textContent=p.xp;
- gold.textContent=p.gold;
- lvl.textContent=p.lvl;
+if((keys["Space"]||keys["ArrowUp"]||keys["KeyW"])&&p.ground){
+p.vy=-15;
+p.ground=false;
 }
 
+p.vy+=0.7;
+p.x+=p.vx;
+p.y+=p.vy;
+
+p.ground=false;
+
+/* platforms */
+for(const pl of plats){
+if(p.x+p.w>pl.x && p.x<pl.x+pl.w &&
+p.y+p.h>pl.y && p.y+p.h<pl.y+40 && p.vy>=0){
+p.y=pl.y-p.h;
+p.vy=0;
+p.ground=true;
+}
+}
+
+/* coins */
+for(const c of coins){
+if(c.taken) continue;
+if(Math.hypot((p.x-c.x),(p.y-c.y))<35){
+c.taken=true;
+p.gold++;
+p.xp+=5;
+
+if(p.xp>=100){
+p.xp=0;
+p.lvl++;
+}
+}
+}
+
+/* enemies */
+for(const e of enemies){
+if(e.dead) continue;
+
+e.x+=e.dir*2;
+if(Math.random()<0.01) e.dir*=-1;
+
+if(rect(p,e)){
+if(p.vy>0){
+e.dead=true;
+p.vy=-10;
+p.gold+=3;
+}else{
+p.hp--;
+if(p.hp<=0){
+gameOver=true;
+return;
+}
+p.x=100;
+p.y=100;
+}
+}
+}
+
+cam=p.x-canvas.width/2;
+
+/* HUD */
+hp.textContent=p.hp;
+xp.textContent=p.xp;
+gold.textContent=p.gold;
+lvl.textContent=p.lvl;
+}
+
+/* draw world */
 function draw(){
- ctx.fillStyle="#6ec6ff";
- ctx.fillRect(0,0,canvas.width,canvas.height);
 
- ctx.fillStyle="#7ec850";
- ctx.fillRect(0,620,canvas.width,100);
+drawBackground();
 
- for(const pl of plats){
-   ctx.fillStyle="#6b4f2a";
-   ctx.fillRect(pl.x-cam,pl.y,pl.w,pl.h);
- }
+/* platforms */
+for(const pl of plats){
+ctx.fillStyle="#5a3d1e";
+ctx.fillRect(pl.x-cam,pl.y,pl.w,pl.h);
 
- for(const c of coins){
-   if(c.taken) continue;
-   ctx.fillStyle="gold";
-   ctx.beginPath();
-   ctx.arc(c.x-cam,c.y,10,0,7);
-   ctx.fill();
- }
+// grass top
+ctx.fillStyle="#3fa34d";
+ctx.fillRect(pl.x-cam,pl.y,pl.w,10);
+}
 
- for(const e of enemies){
-   if(e.dead) continue;
-   ctx.fillStyle="limegreen";
-   ctx.fillRect(e.x-cam,e.y,e.w,e.h);
- }
+/* coins */
+for(const c of coins){
+if(c.taken) continue;
+ctx.fillStyle="gold";
+ctx.beginPath();
+ctx.arc(c.x-cam,c.y,10,0,Math.PI*2);
+ctx.fill();
+}
 
- ctx.fillStyle=p.color;
- ctx.fillRect(p.x-cam,p.y,p.w,p.h);
+/* enemies */
+for(const e of enemies){
+if(e.dead) continue;
 
- ctx.fillStyle="black";
- ctx.fillText("A/D oder Pfeile bewegen, Leertaste springen",20,canvas.height-20);
+// simple "creature"
+ctx.fillStyle="limegreen";
+ctx.fillRect(e.x-cam,e.y,e.w,e.h);
+ctx.fillStyle="black";
+ctx.fillRect(e.x-cam+10,e.y+10,5,5);
+ctx.fillRect(e.x-cam+25,e.y+10,5,5);
+}
+
+/* player */
+drawPlayer();
+
+/* UI text */
+ctx.fillStyle="black";
+ctx.fillText("A/D bewegen, Space springen",20,canvas.height-20);
+
+/* game over */
 if(gameOver){
+ctx.fillStyle="rgba(0,0,0,0.8)";
+ctx.fillRect(0,0,canvas.width,canvas.height);
 
-   ctx.fillStyle="rgba(0,0,0,0.8)";
-   ctx.fillRect(
-      0,
-      0,
-      canvas.width,
-      canvas.height
-   );
-
-   ctx.fillStyle="white";
-   ctx.font="80px Arial";
-
-   ctx.fillText(
-      "GAME OVER",
-      canvas.width/2-220,
-      canvas.height/2
-   );
-
+ctx.fillStyle="white";
+ctx.font="70px Arial";
+ctx.fillText("GAME OVER",canvas.width/2-200,canvas.height/2);
 }
 }
 
 function loop(){
- requestAnimationFrame(loop);
- update();
- draw();
+requestAnimationFrame(loop);
+update();
+draw();
 }
 loop();
+
 </script>
 </body>
 </html>
